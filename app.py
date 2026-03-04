@@ -2,51 +2,57 @@ import streamlit as st
 from PIL import Image
 import numpy as np
 import cv2
-from streamlit_drawable_canvas import st_canvas
+from rembg import remove
 import tempfile
 
-st.title("Live Camera - Manual Background Removal")
+st.title("Live Camera - Background Remove Option")
 
-# Capture from browser camera
+# Camera input (browser based)
 picture = st.camera_input("Take a picture")
 
 if picture:
     image = Image.open(picture)
     img_array = np.array(image)
 
-    st.subheader("Step 1: Use Mouse to Remove Background")
+    col1, col2 = st.columns(2)
 
-    # Drawable canvas
-    canvas_result = st_canvas(
-        fill_color="rgba(0, 0, 0, 1)",  # Erase area
-        stroke_width=20,
-        stroke_color="black",
-        background_image=image,
-        update_streamlit=True,
-        height=image.size[1],
-        width=image.size[0],
-        drawing_mode="freedraw",
-        key="canvas",
-    )
+    with col1:
+        remove_bg = st.button("Remove Background")
 
-    if canvas_result.image_data is not None:
-        # Convert canvas to numpy
-        edited_image = canvas_result.image_data.astype(np.uint8)
+    with col2:
+        keep_original = st.button("Keep Original")
 
-        st.subheader("Processed Image")
-        st.image(edited_image)
+    if remove_bg:
+        # Remove background using AI
+        output = remove(image)
+        output_np = np.array(output)
 
-        # Save button
-        if st.button("Save Image"):
-            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-            cv2.imwrite(
-                temp_file.name,
-                cv2.cvtColor(edited_image, cv2.COLOR_RGBA2BGR),
-            )
+        st.image(output_np, caption="Background Removed")
 
-            st.success("Image Saved!")
-            st.download_button(
-                "Download Image",
-                data=open(temp_file.name, "rb"),
-                file_name="bg_removed.png",
-            )
+        # Save
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+        cv2.imwrite(
+            temp_file.name,
+            cv2.cvtColor(output_np, cv2.COLOR_RGBA2BGRA),
+        )
+
+        st.download_button(
+            "Download Image",
+            data=open(temp_file.name, "rb"),
+            file_name="bg_removed.png",
+        )
+
+    if keep_original:
+        st.image(img_array, caption="Original Image")
+
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+        cv2.imwrite(
+            temp_file.name,
+            cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR),
+        )
+
+        st.download_button(
+            "Download Image",
+            data=open(temp_file.name, "rb"),
+            file_name="original.jpg",
+        )
